@@ -1,0 +1,94 @@
+@startuml
+!pragma teoz true
+box "multiTaskingAccumulator process" #lightsalmon
+participant main
+box "displayManager process"
+participant display
+end box
+box "messageAdder process" #lightblue
+participant "InterfaceMessageAdder" as interface
+participant "consumer:pthread_t" as thread1
+participant "mutex_CurrentSum:mutex_t" as mutex1
+participant "currentSum:tab" as sum
+participant "mutex_consumeCount:mutex_t" as mutex2
+participant "consumedCount:int" as count
+end box
+box "AcquisitionManager process"
+participant interfaceAcquisitionManager as InterfaceAc
+end box
+end box
+
+activate display
+display -> interface --++ : "getcurrentSum"
+
+interface -> mutex1:"lock"
+activate mutex1 #gold
+return
+interface -> sum:"readSum"
+activate sum #gold
+return
+interface -> mutex1:"unlock"
+activate mutex1 #gold
+return
+interface -> display --++: "return ERROR_SUCCESS"
+
+main -> interface : "MessageAdderInit"
+activate interface
+interface -> thread1 : "pthread_create"
+activate thread1 #FFBBBB
+thread1 --> interface
+
+note over thread1 : sum
+
+interface -> thread1 :"pthread_join"
+deactivate interface
+
+
+thread1 -> InterfaceAc : "getMessage"
+deactivate thread1
+activate InterfaceAc 
+
+
+
+InterfaceAc --> thread1 : "return ERROR_SUCCESS"
+deactivate InterfaceAc
+activate thread1 #FFBBBB
+
+
+thread1 -> mutex1:"lock"
+activate mutex1 #gold
+return
+thread1 -> sum:"messageAdd"
+activate sum #gold
+return
+
+thread1 -> mutex2:"lock"
+activate mutex2 #gold
+return
+thread1 -> count:"increaseConsumedCount"
+activate count #gold
+return
+thread1 -> mutex2:"unlock"
+activate mutex2 #gold
+return
+thread1 -> mutex1:"unlock"
+activate mutex1 #gold
+return
+deactivate thread1
+
+display -> interface --++ : "getconsumedCount"
+interface -> mutex2:"lock"
+activate mutex2 #gold
+return
+interface -> count:"readCount"
+activate count #gold
+return
+interface -> mutex2:"unlock"
+activate mutex2 #gold
+return
+
+interface -> display --++: "return ERROR_SUCCESS"
+
+
+
+@enduml

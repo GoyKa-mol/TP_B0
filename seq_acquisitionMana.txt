@@ -1,0 +1,138 @@
+@startuml
+!pragma teoz true
+box "multiTaskingAccumulator process" #lightsalmon
+participant main
+box "displayManager process"
+participant display
+end box
+box "messageAdder process" 
+participant consumer
+end box
+box "acquisitionManager process" #lightblue
+participant "interfaceAcquisitionManager" as interface
+participant "producer[i]:pthread_t" as thread1
+participant "mutex_producedCount:mutex_t" as mutexProd
+participant "producedCount:int" as count
+participant "Slib = N:semaphore" as Slib
+participant "Socc=0:semaphore" as Socc
+participant "Com1:mutex" as Com1
+participant "Com2:mutex" as Com2
+participant "Com3:mutex" as Com3
+participant "Com4:mutex" as Com4
+participant "Buffer:tab" as Buffer
+participant "Tlib:tab" as Tlib
+participant "Tocc:tab" as Tocc
+end box
+box Sensor
+participant interfaceSensor as interfaceSe
+end box
+
+consumer -> interface : "getMessage"
+activate interface
+
+interface -> Socc : "prendre"
+activate Socc #green
+return
+interface -> Com3 : "lock"
+activate Com3 #gold
+return
+interface -> Tocc : "takeOccupiedIndex j"
+activate Tocc #lavender
+return
+interface -> Com3 : "unlock"
+activate Com3 #gold
+return
+interface -> Buffer : "readMessage j"
+activate Buffer #lavender
+return
+interface -> Com4 : "lock"
+activate Com4 #gold
+return
+interface -> Tlib: "tagFreeIndex"
+activate Tlib #lavender
+return
+interface -> Com4 : "unlock"
+activate Com4 #gold
+return
+interface -> Slib : "vendre"
+activate Slib #green
+return
+
+interface --> consumer : "return ERROR_SUCCESS"
+deactivate interface
+
+
+main -> interface : "acquisitionManagerInit"
+activate interface
+interface -> thread1 : "pthread_create"
+activate thread1 #FFBBBB
+thread1 --> interface
+
+note over thread1 : produce
+
+interface -> thread1 :"pthread_join"
+deactivate interface
+
+
+thread1 -> interfaceSe : "getInput"
+deactivate thread1
+activate interfaceSe
+interfaceSe --> thread1 : "return ERROR_SUCCESS"
+deactivate interfaceSe
+activate thread1 #FFBBBB
+
+thread1 -> thread1 : "messageCheck"
+
+thread1 -> Slib : "prendre"
+activate Slib #green
+return
+thread1 -> Com1 : "lock"
+activate Com1 #gold
+return
+thread1 -> Tlib : "takeFreeIndex"
+activate Tlib #lavender
+return
+thread1 -> Com1 : "unlock"
+activate Com1 #gold
+return
+thread1 -> Buffer : "writeMessage"
+activate Buffer #lavender
+return
+thread1 -> Com2 : "lock"
+activate Com2 #gold
+return
+thread1 -> Tocc: "tagOccupiedIndex"
+activate Tocc #lavender
+return
+thread1 -> mutexProd:"lock"
+activate mutexProd #gold
+return
+thread1 -> count:"incrementProducedCount"
+activate count #gold
+return
+thread1 -> mutexProd:"unlock"
+activate mutexProd #gold
+return
+thread1 -> Com2 : "unlock"
+activate Com2 #gold
+return
+thread1 -> Socc : "vendre"
+activate Socc #green
+return
+
+display -> interface --++ : "getproducedCount"
+interface -> mutexProd:"lock"
+activate mutexProd #gold
+return
+interface -> count:"readProducedCount"
+activate count #gold
+return
+interface -> mutexProd:"unlock"
+activate mutexProd #gold
+return
+
+interface --> display --++: "return ERROR_SUCCESS"
+
+
+
+@enduml
